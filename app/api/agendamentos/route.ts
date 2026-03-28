@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     .neq("status", "cancelado");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 
   return NextResponse.json({ ocupados: agendamentos.map((a) => a.horario) });
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true }, { status: 201 });

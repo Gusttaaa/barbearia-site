@@ -11,12 +11,12 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link href="/" className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full overflow-hidden ring-1 ring-white/10">
+              <div className="w-14 h-14 rounded-full overflow-hidden ring-1 ring-white/10">
                 <Image
                   src="/logo.png"
                   alt="Barbearia de Primeira"
-                  width={48}
-                  height={48}
+                  width={56}
+                  height={56}
                   className="w-full h-full object-cover"
                 />
               </div>

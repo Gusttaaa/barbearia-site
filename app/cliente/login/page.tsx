@@ -78,8 +78,8 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="w-14 h-14 rounded-full overflow-hidden ring-1 ring-white/10 mx-auto mb-4">
-            <Image src="/logo.png" alt="Logo" width={56} height={56} className="w-full h-full object-cover" />
+          <div className="w-16 h-16 rounded-full overflow-hidden ring-1 ring-white/10 mx-auto mb-4">
+            <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display text-3xl text-[#f5f0eb] tracking-wider">ÁREA DO CLIENTE</h1>
           <p className="text-[#a8a8a8] text-sm mt-2">Acesse seus agendamentos e muito mais</p>

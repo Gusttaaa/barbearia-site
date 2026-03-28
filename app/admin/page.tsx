@@ -344,7 +344,7 @@ function BarbeirosTab({
     setSaving(true);
     const iniciais = form.nome.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
     await supabase.from("profissionais").insert({
-      id: `p${Date.now()}`,
+      id: crypto.randomUUID(),
       nome: form.nome,
       especialidade: form.especialidade || null,
       unidade_id: form.unidade_id,
