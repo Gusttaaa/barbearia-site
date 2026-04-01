@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  LogOut, Calendar, Users, MapPin, Plus, Check,
-  Edit2, Trash2, AlertCircle, Loader2,
+  LogOut, Calendar, CalendarDays, Users, MapPin, Plus, Check,
+  Edit2, Trash2, AlertCircle, Loader2, BarChart2, TrendingUp,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { servicos } from "@/lib/data/servicos";
@@ -35,6 +36,7 @@ interface DBProfissional {
   foto: string | null;
   rating: number;
   ativo: boolean;
+  user_id?: string | null;
 }
 
 interface DBAgendamento {
@@ -53,7 +55,7 @@ interface DBAgendamento {
   status: string;
 }
 
-type Tab = "agendamentos" | "barbeiros" | "unidades";
+type Tab = "agendamentos" | "barbeiros" | "unidades" | "financeiro" | "relatorios" | "agenda";
 
 const HORARIOS = [
   "09:00","09:30","10:00","10:30","11:00","11:30",
@@ -594,12 +596,513 @@ function UnidadesTab({
   );
 }
 
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
+type FinPeriod = "7d" | "30d" | "ano" | "tudo";
+
+const FIN_PERIODS: { key: FinPeriod; label: string }[] = [
+  { key: "7d",   label: "7 dias" },
+  { key: "30d",  label: "30 dias" },
+  { key: "ano",  label: "Este ano" },
+  { key: "tudo", label: "Tudo" },
+];
+
+function getAgsByPeriod(ags: DBAgendamento[], period: FinPeriod) {
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
+  return ags.filter((a) => {
+    const d = new Date(a.data + "T00:00:00");
+    if (period === "7d") {
+      const from = new Date(); from.setDate(from.getDate() - 6); from.setHours(0, 0, 0, 0);
+      return d >= from && d <= now;
+    }
+    if (period === "30d") {
+      const from = new Date(); from.setDate(from.getDate() - 29); from.setHours(0, 0, 0, 0);
+      return d >= from && d <= now;
+    }
+    if (period === "ano") return d.getFullYear() === now.getFullYear();
+    return true;
+  });
+}
+
+function KpiCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
+  return (
+    <div className="bg-[#1a1a1a] ring-1 ring-white/5 rounded-sm p-4">
+      <p className="text-[#a8a8a8] text-[10px] uppercase tracking-widest mb-2">{label}</p>
+      <p className={`text-2xl font-semibold ${accent ? "text-[#3aab4a]" : "text-[#f5f0eb]"}`}>{value}</p>
+      {sub && <p className="text-[#a8a8a8] text-xs mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function MiniBar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+      <div className="h-full bg-[#3aab4a] rounded-full transition-all" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+// ─── Financeiro Tab ───────────────────────────────────────────────────────────
+
+function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
+  const [period, setPeriod] = useState<FinPeriod>("30d");
+  const [commRate, setCommRate] = useState("40");
+
+  const subset   = getAgsByPeriod(agendamentos, period);
+  const confirmed = subset.filter((a) => a.status !== "cancelado");
+  const cancelledCount = subset.filter((a) => a.status === "cancelado").length;
+  const totalRevenue = confirmed.reduce((s, a) => s + (a.servico_preco ?? 0), 0);
+  const avgTicket    = confirmed.length > 0 ? totalRevenue / confirmed.length : 0;
+  const rate = Math.min(100, Math.max(0, parseFloat(commRate) || 0)) / 100;
+
+  // Receita por unidade
+  const byUnit: Record<string, { nome: string; receita: number; count: number }> = {};
+  for (const a of confirmed) {
+    const k = a.unidade_id;
+    if (!byUnit[k]) byUnit[k] = { nome: a.unidade_nome ?? a.unidade_id, receita: 0, count: 0 };
+    byUnit[k].receita += a.servico_preco ?? 0;
+    byUnit[k].count++;
+  }
+  const unitRows = Object.values(byUnit).sort((a, b) => b.receita - a.receita);
+  const maxUnit  = unitRows[0]?.receita ?? 1;
+
+  // Receita por barbeiro
+  const byBarber: Record<string, { nome: string; receita: number; count: number }> = {};
+  for (const a of confirmed) {
+    const k = a.profissional_id;
+    if (!byBarber[k]) byBarber[k] = { nome: a.profissional_nome ?? a.profissional_id, receita: 0, count: 0 };
+    byBarber[k].receita += a.servico_preco ?? 0;
+    byBarber[k].count++;
+  }
+  const barberRows = Object.values(byBarber).sort((a, b) => b.receita - a.receita);
+  const maxBarber  = barberRows[0]?.receita ?? 1;
+
+  return (
+    <div className="space-y-6">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1 p-1 bg-[#1a1a1a] rounded-sm ring-1 ring-white/5">
+          {FIN_PERIODS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPeriod(key)}
+              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${
+                period === key ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[#a8a8a8] text-xs">Comissão barbeiro:</span>
+          <input
+            type="number" min="0" max="100"
+            value={commRate}
+            onChange={(e) => setCommRate(e.target.value)}
+            className="w-16 bg-[#272727] ring-1 ring-white/10 rounded-sm px-2 py-1.5 text-[#f5f0eb] text-xs text-center focus:outline-none focus:ring-[#3aab4a] transition-all"
+          />
+          <span className="text-[#a8a8a8] text-xs">%</span>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard label="Receita total"    value={`R$ ${totalRevenue.toFixed(0)}`}              sub={`${confirmed.length} atendimento${confirmed.length !== 1 ? "s" : ""}`} accent />
+        <KpiCard label="Ticket médio"     value={`R$ ${avgTicket.toFixed(0)}`} />
+        <KpiCard label="Cancelamentos"    value={String(cancelledCount)}                        sub={subset.length > 0 ? `${Math.round((cancelledCount / subset.length) * 100)}% do total` : "—"} />
+        <KpiCard label="Est. comissões"   value={`R$ ${Math.round(totalRevenue * rate)}`}       sub={`${commRate}% da receita`} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Por unidade */}
+        <div className="bg-[#1a1a1a] ring-1 ring-white/5 rounded-sm p-4">
+          <p className="text-[#f5f0eb] text-xs font-medium mb-4 uppercase tracking-widest">Receita por Unidade</p>
+          {unitRows.length === 0 ? (
+            <p className="text-[#a8a8a8] text-sm">Sem dados no período</p>
+          ) : (
+            <div className="space-y-3">
+              {unitRows.map((u) => (
+                <div key={u.nome} className="flex items-center gap-3">
+                  <span className="text-[#f5f0eb] text-xs w-28 truncate shrink-0">{u.nome}</span>
+                  <MiniBar value={u.receita} max={maxUnit} />
+                  <span className="text-[#3aab4a] text-xs whitespace-nowrap">R$ {u.receita}</span>
+                  <span className="text-[#a8a8a8] text-[10px] w-14 text-right shrink-0">{u.count} atend.</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Por barbeiro */}
+        <div className="bg-[#1a1a1a] ring-1 ring-white/5 rounded-sm p-4">
+          <p className="text-[#f5f0eb] text-xs font-medium mb-4 uppercase tracking-widest">Ranking Barbeiros</p>
+          {barberRows.length === 0 ? (
+            <p className="text-[#a8a8a8] text-sm">Sem dados no período</p>
+          ) : (
+            <div className="space-y-3">
+              {barberRows.map((b, i) => (
+                <div key={b.nome} className="flex items-center gap-3">
+                  <span className="text-[#a8a8a8] text-[10px] w-4 shrink-0">{i + 1}</span>
+                  <span className="text-[#f5f0eb] text-xs w-24 truncate shrink-0">{b.nome}</span>
+                  <MiniBar value={b.receita} max={maxBarber} />
+                  <span className="text-[#3aab4a] text-xs whitespace-nowrap">R$ {b.receita}</span>
+                  <span className="text-[#a8a8a8] text-[10px] w-20 text-right shrink-0">
+                    comiss. R$ {Math.round(b.receita * rate)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Relatórios Tab ───────────────────────────────────────────────────────────
+
+function RelatoriosTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
+  const confirmed = agendamentos.filter((a) => a.status !== "cancelado");
+
+  // Horários de pico
+  const horarioCounts: Record<string, number> = {};
+  for (const a of confirmed) horarioCounts[a.horario] = (horarioCounts[a.horario] ?? 0) + 1;
+  const horariosOrdered = HORARIOS.map((h) => ({ h, count: horarioCounts[h] ?? 0 }));
+  const maxHorario = Math.max(...horariosOrdered.map((x) => x.count), 1);
+
+  // Serviços mais populares
+  const servicoCounts: Record<string, { nome: string; count: number }> = {};
+  for (const a of confirmed) {
+    const k = a.servico_id;
+    if (!servicoCounts[k]) servicoCounts[k] = { nome: a.servico_nome ?? a.servico_id, count: 0 };
+    servicoCounts[k].count++;
+  }
+  const servicoRows = Object.values(servicoCounts).sort((a, b) => b.count - a.count).slice(0, 8);
+  const maxServico  = servicoRows[0]?.count ?? 1;
+
+  // Ranking barbeiros por atendimentos
+  const barberCounts: Record<string, { nome: string; count: number }> = {};
+  for (const a of confirmed) {
+    const k = a.profissional_id;
+    if (!barberCounts[k]) barberCounts[k] = { nome: a.profissional_nome ?? a.profissional_id, count: 0 };
+    barberCounts[k].count++;
+  }
+  const barberCountRows = Object.values(barberCounts).sort((a, b) => b.count - a.count);
+  const maxBarberCount  = barberCountRows[0]?.count ?? 1;
+
+  // Taxa de retorno
+  const clientMap: Record<string, number> = {};
+  for (const a of confirmed) clientMap[a.cliente_telefone] = (clientMap[a.cliente_telefone] ?? 0) + 1;
+  const totalClientes  = Object.keys(clientMap).length;
+  const retornantes    = Object.values(clientMap).filter((c) => c > 1).length;
+  const retentionRate  = totalClientes > 0 ? Math.round((retornantes / totalClientes) * 100) : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Taxa de retorno */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <KpiCard label="Clientes únicos"      value={String(totalClientes)} />
+        <KpiCard label="Clientes recorrentes" value={String(retornantes)} sub="2+ visitas" />
+        <KpiCard label="Taxa de retorno"      value={`${retentionRate}%`} accent />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Horários de pico */}
+        <div className="bg-[#1a1a1a] ring-1 ring-white/5 rounded-sm p-4">
+          <p className="text-[#f5f0eb] text-xs font-medium mb-4 uppercase tracking-widest">Horários de Pico</p>
+          <div className="space-y-2">
+            {horariosOrdered.map(({ h, count }) => (
+              <div key={h} className="flex items-center gap-3">
+                <span className="text-[#a8a8a8] text-[10px] w-10 shrink-0 font-mono">{h}</span>
+                <MiniBar value={count} max={maxHorario} />
+                <span className="text-[#a8a8a8] text-[10px] w-6 text-right shrink-0">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Serviços populares */}
+        <div className="bg-[#1a1a1a] ring-1 ring-white/5 rounded-sm p-4">
+          <p className="text-[#f5f0eb] text-xs font-medium mb-4 uppercase tracking-widest">Serviços Mais Populares</p>
+          {servicoRows.length === 0 ? (
+            <p className="text-[#a8a8a8] text-sm">Sem dados</p>
+          ) : (
+            <div className="space-y-3">
+              {servicoRows.map((s, i) => (
+                <div key={s.nome} className="flex items-center gap-3">
+                  <span className="text-[#a8a8a8] text-[10px] w-4 shrink-0">{i + 1}</span>
+                  <span className="text-[#f5f0eb] text-xs w-32 truncate shrink-0">{s.nome}</span>
+                  <MiniBar value={s.count} max={maxServico} />
+                  <span className="text-[#a8a8a8] text-[10px] w-6 text-right shrink-0">{s.count}x</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Ranking barbeiros */}
+      <div className="bg-[#1a1a1a] ring-1 ring-white/5 rounded-sm p-4">
+        <p className="text-[#f5f0eb] text-xs font-medium mb-4 uppercase tracking-widest">Ranking de Barbeiros por Atendimentos</p>
+        {barberCountRows.length === 0 ? (
+          <p className="text-[#a8a8a8] text-sm">Sem dados</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+            {barberCountRows.map((b, i) => (
+              <div key={b.nome} className="flex items-center gap-3">
+                <span className="text-[#a8a8a8] text-[10px] w-4 shrink-0">{i + 1}</span>
+                <span className="text-[#f5f0eb] text-xs w-32 truncate shrink-0">{b.nome}</span>
+                <MiniBar value={b.count} max={maxBarberCount} />
+                <span className="text-[#a8a8a8] text-[10px] w-14 text-right shrink-0">{b.count} atend.</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Agenda Tab ──────────────────────────────────────────────────────────────
+
+const AGENDA_WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function getWeekDates(anchor: Date): Date[] {
+  const d = new Date(anchor);
+  const dow = d.getDay();
+  const toMon = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + toMon);
+  return Array.from({ length: 6 }, (_, i) => {
+    const dd = new Date(d);
+    dd.setDate(d.getDate() + i);
+    return dd;
+  });
+}
+
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function AgendaTab({
+  agendamentos,
+  profissionais,
+  fixedProfissionalId,
+  isAdmin,
+}: {
+  agendamentos: DBAgendamento[];
+  profissionais: DBProfissional[];
+  fixedProfissionalId: string | null;
+  isAdmin: boolean;
+}) {
+  const today = fmtDate(new Date());
+  const [view, setView] = useState<"dia" | "semana">("semana");
+  const [selectedProfId, setSelectedProfId] = useState<string>(
+    fixedProfissionalId ?? profissionais.find((p) => p.ativo)?.id ?? ""
+  );
+  const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+
+  const weekDates = getWeekDates(currentDate);
+  const profAtivo = profissionais.find((p) => p.id === selectedProfId);
+
+  const agsFiltrados = agendamentos.filter(
+    (a) => a.profissional_id === selectedProfId && a.status !== "cancelado"
+  );
+
+  const agsNoDia = (dateStr: string) =>
+    agsFiltrados.filter((a) => a.data === dateStr);
+
+  const prevDay  = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
+  const nextDay  = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
+  const prevWeek = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
+  const nextWeek = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; });
+
+  return (
+    <div>
+      {/* Top bar: selector (admin) + view toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3 flex-wrap">
+          {isAdmin && (
+            <select
+              value={selectedProfId}
+              onChange={(e) => setSelectedProfId(e.target.value)}
+              className="bg-[#1a1a1a] ring-1 ring-white/10 rounded-sm px-3 py-2 text-[#f5f0eb] text-sm focus:outline-none focus:ring-[#3aab4a] transition-all"
+            >
+              <option value="">Selecionar barbeiro…</option>
+              {profissionais.filter((p) => p.ativo).map((p) => (
+                <option key={p.id} value={p.id}>{p.nome}</option>
+              ))}
+            </select>
+          )}
+          {profAtivo && (
+            <div className="flex items-center gap-2">
+              {profAtivo.foto && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profAtivo.foto} alt={profAtivo.nome} className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10" />
+              )}
+              <span className="text-[#f5f0eb] text-sm font-medium">{profAtivo.nome}</span>
+              {profAtivo.especialidade && (
+                <span className="text-[#a8a8a8] text-xs">— {profAtivo.especialidade}</span>
+              )}
+            </div>
+          )}
+          {!profAtivo && isAdmin && (
+            <span className="text-[#a8a8a8] text-sm">Selecione um barbeiro para ver a agenda</span>
+          )}
+        </div>
+        <div className="flex gap-1 p-1 bg-[#1a1a1a] rounded-sm ring-1 ring-white/5">
+          {(["semana", "dia"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${
+                view === v ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
+              }`}
+            >
+              {v === "dia" ? "Dia" : "Semana"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!selectedProfId ? null : view === "semana" ? (
+        /* ── Week view ──────────────────────────────────────────────── */
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={prevWeek} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-[#f5f0eb] text-sm font-medium">
+              {weekDates[0].toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+              {" — "}
+              {weekDates[5].toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+            </span>
+            <button onClick={nextWeek} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {weekDates.map((date, i) => {
+              const ds = fmtDate(date);
+              const dayAgs = agsNoDia(ds);
+              const isToday = ds === today;
+              const isPast = ds < today;
+              return (
+                <div
+                  key={ds}
+                  onClick={() => { setCurrentDate(new Date(date)); setView("dia"); }}
+                  className={`rounded-sm p-3 cursor-pointer transition-all ring-1 ${
+                    isToday
+                      ? "bg-[#1a2a1a] ring-[#3aab4a]/40 hover:ring-[#3aab4a]"
+                      : "bg-[#1a1a1a] ring-white/5 hover:ring-white/20"
+                  }`}
+                >
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className={`text-[10px] font-medium uppercase tracking-wider ${
+                      isToday ? "text-[#3aab4a]" : isPast ? "text-[#a8a8a8]/40" : "text-[#a8a8a8]"
+                    }`}>
+                      {AGENDA_WEEK_DAYS[i]}
+                    </span>
+                    <span className={`text-xl font-semibold leading-none ${
+                      isToday ? "text-[#3aab4a]" : isPast ? "text-[#f5f0eb]/25" : "text-[#f5f0eb]"
+                    }`}>
+                      {date.getDate()}
+                    </span>
+                  </div>
+                  {dayAgs.length === 0 ? (
+                    <p className="text-[#a8a8a8]/25 text-[10px]">Livre</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {dayAgs.slice(0, 3).map((ag) => (
+                        <div key={ag.id} className="text-[10px] bg-[#3aab4a]/15 text-[#4ec55e] rounded-sm px-1.5 py-0.5 truncate">
+                          {ag.horario} · {ag.cliente_nome.split(" ")[0]}
+                        </div>
+                      ))}
+                      {dayAgs.length > 3 && (
+                        <p className="text-[#a8a8a8] text-[10px]">+{dayAgs.length - 3} mais</p>
+                      )}
+                    </div>
+                  )}
+                  <div className={`mt-2 pt-2 border-t ${isToday ? "border-[#3aab4a]/20" : "border-white/5"}`}>
+                    <span className="text-[10px] text-[#a8a8a8]">{dayAgs.length} agend.</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* ── Day view ───────────────────────────────────────────────── */
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={prevDay} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-[#f5f0eb] text-sm font-medium capitalize">
+              {currentDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+              {fmtDate(currentDate) === today && (
+                <span className="ml-2 text-[#3aab4a] text-xs font-sans normal-case">(Hoje)</span>
+              )}
+            </span>
+            <button onClick={nextDay} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            {HORARIOS.map((h) => {
+              const ag = agsNoDia(fmtDate(currentDate)).find((a) => a.horario === h);
+              return (
+                <div
+                  key={h}
+                  className={`flex gap-3 items-center px-4 py-3 rounded-sm ring-1 transition-all ${
+                    ag ? "bg-[#1a2a1a] ring-[#3aab4a]/25" : "bg-[#1a1a1a] ring-white/5"
+                  }`}
+                >
+                  <span className="text-[#a8a8a8] text-xs w-10 shrink-0 font-mono">{h}</span>
+                  <div className="w-px h-4 bg-white/10 shrink-0" />
+                  {ag ? (
+                    <div className="flex-1 flex flex-wrap items-center gap-3">
+                      <span className="text-[#f5f0eb] text-sm font-medium">{ag.cliente_nome}</span>
+                      <span className="text-[#a8a8a8] text-xs">{ag.cliente_telefone}</span>
+                      <span className="text-[10px] bg-[#3aab4a]/15 text-[#4ec55e] px-2 py-0.5 rounded-sm">
+                        {ag.servico_nome}
+                      </span>
+                      {ag.servico_preco !== null && (
+                        <span className="text-[#a8a8a8] text-xs">R$ {ag.servico_preco}</span>
+                      )}
+                      <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-sm ${
+                        ag.status === "confirmado"
+                          ? "bg-[#3aab4a]/15 text-[#4ec55e]"
+                          : "bg-yellow-400/10 text-yellow-400"
+                      }`}>
+                        {ag.status}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[#a8a8a8]/30 text-xs">Disponível</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isBarbeiro, setIsBarbeiro] = useState(false);
+  const [barbeiroProfissional, setBarbeiroProfissional] = useState<DBProfissional | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("agendamentos");
   const [agendamentos, setAgendamentos] = useState<DBAgendamento[]>([]);
@@ -621,10 +1124,27 @@ export default function AdminPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/cliente/login"); return; }
       setUser(user);
-      const { data: adminRow } = await supabase.from("admins").select("id").eq("id", user.id).maybeSingle();
-      if (!adminRow) { setLoading(false); return; }
-      setIsAdmin(true);
-      await loadData();
+
+      const [{ data: adminRow }, { data: profRow }] = await Promise.all([
+        supabase.from("admins").select("id").eq("id", user.id).maybeSingle(),
+        supabase.from("profissionais").select("*").eq("user_id", user.id).maybeSingle(),
+      ]);
+
+      if (adminRow) {
+        setIsAdmin(true);
+        await loadData();
+      } else if (profRow) {
+        setIsBarbeiro(true);
+        setBarbeiroProfissional(profRow);
+        const { data: ags } = await supabase
+          .from("agendamentos")
+          .select("*")
+          .eq("profissional_id", profRow.id)
+          .order("data", { ascending: false });
+        setAgendamentos(ags ?? []);
+        setProfissionais([profRow]);
+      }
+
       setLoading(false);
     });
   }, [router, loadData]);
@@ -637,7 +1157,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isBarbeiro) {
     return (
       <div className="min-h-screen bg-[#111111] flex flex-col items-center justify-center gap-4 px-4">
         <AlertCircle size={40} className="text-red-400" />
@@ -650,10 +1170,44 @@ export default function AdminPage() {
     );
   }
 
+  if (isBarbeiro && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] pt-16">
+        <div className="border-b border-white/5 bg-[#111111] sticky top-16 z-10">
+          <div className="max-w-6xl mx-auto px-6 h-11 flex items-center justify-between">
+            <span className="font-display text-sm tracking-widest text-[#f5f0eb]">
+              MINHA AGENDA
+              <span className="ml-3 text-[#a8a8a8] text-xs font-sans normal-case tracking-normal hidden sm:inline">
+                {barbeiroProfissional?.nome}
+              </span>
+            </span>
+            <button
+              onClick={async () => { await supabase.auth.signOut(); router.push("/"); }}
+              className="flex items-center gap-1.5 text-[#a8a8a8] text-xs hover:text-red-400 transition-colors"
+            >
+              <LogOut size={13} /> Sair
+            </button>
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          <AgendaTab
+            agendamentos={agendamentos}
+            profissionais={profissionais}
+            fixedProfissionalId={barbeiroProfissional?.id ?? null}
+            isAdmin={false}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const tabs = [
-    { id: "agendamentos" as Tab, label: "Agendamentos", Icon: Calendar, count: agendamentos.filter((a) => a.data >= new Date().toISOString().split("T")[0] && a.status !== "cancelado").length },
-    { id: "barbeiros" as Tab, label: "Barbeiros", Icon: Users, count: profissionais.filter((p) => p.ativo).length },
-    { id: "unidades" as Tab, label: "Unidades", Icon: MapPin, count: unidades.filter((u) => u.ativo).length },
+    { id: "agendamentos" as Tab, label: "Agendamentos", Icon: Calendar,      count: agendamentos.filter((a) => a.data >= new Date().toISOString().split("T")[0] && a.status !== "cancelado").length },
+    { id: "barbeiros"    as Tab, label: "Barbeiros",    Icon: Users,         count: profissionais.filter((p) => p.ativo).length },
+    { id: "unidades"     as Tab, label: "Unidades",     Icon: MapPin,        count: unidades.filter((u) => u.ativo).length },
+    { id: "agenda"       as Tab, label: "Agenda",       Icon: CalendarDays,  count: null },
+    { id: "financeiro"   as Tab, label: "Financeiro",   Icon: TrendingUp,    count: null },
+    { id: "relatorios"   as Tab, label: "Relatórios",   Icon: BarChart2,     count: null },
   ];
 
   return (
@@ -689,9 +1243,11 @@ export default function AdminPage() {
             >
               <Icon size={13} />
               {label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === id ? "bg-[#111111]/20" : "bg-white/10"}`}>
-                {count}
-              </span>
+              {count !== null && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === id ? "bg-[#111111]/20" : "bg-white/10"}`}>
+                  {count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -705,6 +1261,20 @@ export default function AdminPage() {
           )}
           {tab === "unidades" && (
             <UnidadesTab unidades={unidades} onRefresh={loadData} />
+          )}
+          {tab === "agenda" && (
+            <AgendaTab
+              agendamentos={agendamentos}
+              profissionais={profissionais}
+              fixedProfissionalId={null}
+              isAdmin={true}
+            />
+          )}
+          {tab === "financeiro" && (
+            <FinanceiroTab agendamentos={agendamentos} />
+          )}
+          {tab === "relatorios" && (
+            <RelatoriosTab agendamentos={agendamentos} />
           )}
         </motion.div>
       </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, ShieldCheck, Scissors } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -19,6 +19,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isBarbeiro, setIsBarbeiro] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -27,9 +29,20 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const checkUser = async (u: SupabaseUser | null) => {
+      setUser(u);
+      if (!u) { setIsAdmin(false); setIsBarbeiro(false); return; }
+      const [{ data: adminData }, { data: profData }] = await Promise.all([
+        supabase.from("admins").select("id").eq("id", u.id).maybeSingle(),
+        supabase.from("profissionais").select("id").eq("user_id", u.id).maybeSingle(),
+      ]);
+      setIsAdmin(!!adminData);
+      setIsBarbeiro(!!profData && !adminData);
+    };
+
+    supabase.auth.getUser().then(({ data: { user } }) => checkUser(user));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
+      checkUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -76,6 +89,24 @@ export default function Navbar() {
 
           {/* CTAs */}
           <div className="hidden md:flex items-center gap-3">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-2 px-4 py-2 border border-[#3aab4a]/30 text-[#3aab4a] text-sm font-medium tracking-widest uppercase rounded-sm hover:border-[#3aab4a] hover:bg-[#3aab4a]/10 transition-all duration-200"
+              >
+                <ShieldCheck size={14} />
+                Admin
+              </Link>
+            )}
+            {isBarbeiro && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-2 px-4 py-2 border border-[#3aab4a]/30 text-[#3aab4a] text-sm font-medium tracking-widest uppercase rounded-sm hover:border-[#3aab4a] hover:bg-[#3aab4a]/10 transition-all duration-200"
+              >
+                <Scissors size={14} />
+                Minha Agenda
+              </Link>
+            )}
             {user ? (
               <Link
                 href="/cliente"
@@ -144,6 +175,26 @@ export default function Navbar() {
                 transition={{ delay: 0.3 }}
                 className="pt-4 flex flex-col gap-3"
               >
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full py-3 border border-[#3aab4a]/30 text-[#3aab4a] text-center font-medium tracking-widest uppercase rounded-sm hover:border-[#3aab4a] transition-colors"
+                  >
+                    <ShieldCheck size={14} />
+                    Admin
+                  </Link>
+                )}
+                {isBarbeiro && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full py-3 border border-[#3aab4a]/30 text-[#3aab4a] text-center font-medium tracking-widest uppercase rounded-sm hover:border-[#3aab4a] transition-colors"
+                  >
+                    <Scissors size={14} />
+                    Minha Agenda
+                  </Link>
+                )}
                 {user ? (
                   <Link
                     href="/cliente"
