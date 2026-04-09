@@ -197,7 +197,15 @@ export default function LoginPage() {
             {mode === "email" && (
               <div className="space-y-4">
                 {isSignUp && (
-                  <input type="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome" className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all" />
+                  <>
+                    <input type="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome" className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all" />
+
+                    <PhoneInput
+                      placeholder="Telefone"
+                      value={phone}
+                      onChange={(val) => setPhone(val)}
+                    />
+                  </>
                 )}
                 <input
                   type="email"
@@ -214,13 +222,6 @@ export default function LoginPage() {
                   placeholder="Senha"
                   className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all"
                 />
-                {isSignUp && (
-                  <PhoneInput
-                    placeholder="Telefone"
-                    value={phone}
-                    onChange={(val) => setPhone(val)}
-                  />
-                )}
                 <button
                   onClick={handleEmailPassword}
                   disabled={loading || !email || !password}
