@@ -35,6 +35,7 @@ interface Booking {
   horario?: string;
   clienteNome?: string;
   clienteTelefone?: string;
+  clienteEmail?: string;
 }
 
 const horarios = [
@@ -153,6 +154,7 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
           clienteNome: booking.clienteNome,
           clienteTelefone: booking.clienteTelefone,
           clienteId: user?.id ?? null,
+          clienteEmail: booking.clienteEmail,
         }),
       });
 
@@ -309,17 +311,18 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
             <div>
               <h2 className="font-display text-2xl text-[#f5f0eb] tracking-wide mb-2">ESCOLHA O HORÁRIO</h2>
               <p className="text-[#a8a8a8] text-sm mb-6">Selecione a data e o horário de sua preferência</p>
-              <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+              <div className="flex gap-2 overflow-x-auto p-2 mb-6">
                 {days.map((day) => (
                   <button key={day.iso} onClick={() => setBooking((b) => ({ ...b, data: day.iso, horario: undefined }))}
-                    className={`flex-shrink-0 flex flex-col items-center px-4 py-3 rounded-sm ring-1 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3aab4a] ${booking.data === day.iso ? "bg-[#3aab4a]/10 ring-[#3aab4a]" : "bg-[#272727] ring-white/5 hover:ring-[#3aab4a]/50"}`}>
+                    className={`flex-shrink-0 flex flex-col items-center px-4 py-3 rounded-sm ring-1 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3aab4a] ${booking.data === day.iso ? "bg-[#3aab4a]/10 ring-[#3aab4a]" : "bg-[#272727] ring-white/5 hover:ring-[#3aab4a]/50"} `}
+                  >
                     <span className="text-[10px] tracking-widest uppercase text-[#a8a8a8] mb-1">{day.weekday}</span>
                     <span className={`font-display text-xl ${booking.data === day.iso ? "text-[#3aab4a]" : "text-[#f5f0eb]"}`}>{day.display}</span>
                   </button>
                 ))}
               </div>
               {booking.data && (
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 p-2">
                   {horarios.map((h) => {
                     const isOcupado = ocupados.includes(h);
                     return (
@@ -372,6 +375,11 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
                   <input type="tel" value={booking.clienteTelefone ?? ""} onChange={(e) => setBooking((b) => ({ ...b, clienteTelefone: e.target.value }))} placeholder="(21) 99999-9999"
                     className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all duration-200" />
                 </div>
+                <div>
+                  <label className="block text-xs tracking-widest uppercase text-[#a8a8a8] mb-2">E-mail</label>
+                  <input type="email" value={booking.clienteEmail ?? ""} onChange={(e) => setBooking((b) => ({ ...b, clienteEmail: e.target.value }))} placeholder="seu@email.com"
+                    className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all duration-200" />
+                </div>
               </div>
               <div className="mt-8 p-5 bg-[#272727] rounded-sm ring-1 ring-white/5 max-w-sm">
                 <p className="text-xs tracking-widest uppercase text-[#a8a8a8] mb-3">Resumo</p>
@@ -413,7 +421,7 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
             </button>
           )}
 
-          {step === "dados" && booking.clienteNome?.trim() && booking.clienteTelefone?.trim() && (
+          {step === "dados" && booking.clienteNome?.trim() && booking.clienteTelefone?.trim() && booking.clienteEmail?.trim() && (
             <button onClick={confirm} disabled={submitting}
               className="flex items-center gap-2 px-8 py-2.5 bg-[#3aab4a] text-[#111111] text-sm font-semibold tracking-widest uppercase rounded-sm hover:bg-[#4ec55e] transition-all duration-200 shadow-[0_0_20px_rgba(58,171,74,0.3)] disabled:opacity-60 disabled:cursor-not-allowed">
               {submitting ? "Confirmando..." : "Confirmar"}

@@ -39,9 +39,10 @@ export async function POST(request: NextRequest) {
     clienteNome,
     clienteTelefone,
     clienteId,
+    clienteEmail,
   } = body;
 
-  if (!profissionalId || !unidadeId || !servicoId || !data || !horario || !clienteNome || !clienteTelefone) {
+  if (!profissionalId || !unidadeId || !servicoId || !data || !horario || !clienteNome || !clienteTelefone || !clienteEmail) {
     return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 });
   }
 
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     cliente_nome: clienteNome,
     cliente_telefone: clienteTelefone,
     cliente_id: resolvedClienteId,
+    cliente_email: clienteEmail,
     status: "confirmado",
   });
 
