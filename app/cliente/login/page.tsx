@@ -7,14 +7,17 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Zap } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { PhoneInput } from "@/components/ui/phoneInput";
 
 type Mode = "magic" | "google" | "email";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("magic");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -47,15 +50,32 @@ export default function LoginPage() {
   };
 
   const handleEmailPassword = async () => {
-    if (!email || !password) return;
+    if (!email || !password || (isSignUp && !name) || (isSignUp && !phone)) return;
+
     setLoading(true);
     setError("");
     const result = isSignUp
-      ? await supabase.auth.signUp({ email, password })
+      ? await supabase.auth.signUp({ email, password, options: { data: { display_name: name, phone } } })
       : await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (result.error) {
-      setError(result.error.message);
+      console.log(result.error.code);
+      switch (result.error.code) {
+        case "email_exists":
+          setError("E-mail já cadastrado");
+          break;
+        case "weak_password":
+          setError("Senha deve conter pelo menos 6 caracteres");
+          break;
+        case "validation_failed":
+          setError("E-mail inválido");
+          break;
+        case "user_already_exists":
+          setError("Usuário já cadastrado");
+          break;
+        default:
+          setError(result.error.message);
+      }
     } else if (isSignUp) {
       setError("Conta criada! Verifique seu e-mail para confirmar.");
     } else {
@@ -176,6 +196,9 @@ export default function LoginPage() {
             {/* Email + Senha */}
             {mode === "email" && (
               <div className="space-y-4">
+                {isSignUp && (
+                  <input type="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome" className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all" />
+                )}
                 <input
                   type="email"
                   value={email}
@@ -191,6 +214,13 @@ export default function LoginPage() {
                   placeholder="Senha"
                   className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all"
                 />
+                {isSignUp && (
+                  <PhoneInput
+                    placeholder="Telefone"
+                    value={phone}
+                    onChange={(val) => setPhone(val)}
+                  />
+                )}
                 <button
                   onClick={handleEmailPassword}
                   disabled={loading || !email || !password}

@@ -6,6 +6,7 @@ import { Check, ArrowLeft, Calendar, User, MapPin, Scissors, Phone } from "lucid
 import { toast } from "sonner";
 import { servicos, type Servico } from "@/lib/data/servicos";
 import { supabase } from "@/lib/supabase";
+import { PhoneInput } from "../ui/phoneInput";
 
 // DB types (flat, from Supabase)
 interface DBUnidade {
@@ -371,11 +372,11 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
                   <input type="text" value={booking.clienteNome ?? ""} onChange={(e) => setBooking((b) => ({ ...b, clienteNome: e.target.value }))} placeholder="Seu nome"
                     className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all duration-200" />
                 </div>
-                <div>
-                  <label className="block text-xs tracking-widest uppercase text-[#a8a8a8] mb-2">WhatsApp</label>
-                  <input type="tel" value={booking.clienteTelefone ?? ""} onChange={(e) => setBooking((b) => ({ ...b, clienteTelefone: e.target.value }))} placeholder="(21) 99999-9999"
-                    className="w-full bg-[#272727] ring-1 ring-white/10 rounded-sm px-4 py-3 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] transition-all duration-200" />
-                </div>
+                <PhoneInput
+                  label="WhatsApp"
+                  value={booking.clienteTelefone ?? ""}
+                  onChange={(val) => setBooking((b) => ({ ...b, clienteTelefone: val }))}
+                />
                 <div>
                   <label className="block text-xs tracking-widest uppercase text-[#a8a8a8] mb-2">E-mail</label>
                   <input type="email" value={booking.clienteEmail ?? ""} onChange={(e) => setBooking((b) => ({ ...b, clienteEmail: e.target.value }))} placeholder="seu@email.com"

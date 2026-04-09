@@ -58,8 +58,8 @@ interface DBAgendamento {
 type Tab = "agendamentos" | "barbeiros" | "unidades" | "financeiro" | "relatorios" | "agenda";
 
 const HORARIOS = [
-  "09:00","09:30","10:00","10:30","11:00","11:30",
-  "14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00",
+  "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00",
 ];
 
 // ─── Input helper ─────────────────────────────────────────────────────────────
@@ -195,9 +195,8 @@ function AgendamentosTab({
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${
-                filter === f ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
-              }`}
+              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${filter === f ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
+                }`}
             >
               {f === "proximos" ? "Próximos" : f === "hoje" ? "Hoje" : "Todos"}
             </button>
@@ -254,9 +253,8 @@ function AgendamentosTab({
             {filtered.map((a) => (
               <div
                 key={a.id}
-                className={`px-4 py-3 flex flex-col md:grid md:grid-cols-[110px_70px_1fr_1fr_1fr_1fr_80px_90px] md:items-center gap-1 md:gap-2 ${
-                  a.status === "cancelado" ? "opacity-40" : ""
-                }`}
+                className={`px-4 py-3 flex flex-col md:grid md:grid-cols-[110px_70px_1fr_1fr_1fr_1fr_80px_90px] md:items-center gap-1 md:gap-2 ${a.status === "cancelado" ? "opacity-40" : ""
+                  }`}
               >
                 <span className="text-[#f5f0eb] text-xs">
                   {new Date(a.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
@@ -455,13 +453,13 @@ type UnitForm = {
 };
 
 const UNIT_FIELDS: { key: keyof UnitForm; placeholder: string; span?: boolean }[] = [
-  { key: "nome",            placeholder: "Nome da unidade" },
-  { key: "bairro",          placeholder: "Bairro" },
-  { key: "endereco",        placeholder: "Endereço completo", span: true },
-  { key: "telefone",        placeholder: "Telefone" },
-  { key: "whatsapp",        placeholder: "WhatsApp (ex: 5521999990001)" },
-  { key: "horario_semana",  placeholder: "Seg–Sex (ex: Seg–Sex: 9h às 20h)", span: true },
-  { key: "horario_sabado",  placeholder: "Sábado (ex: Sáb: 9h às 18h)" },
+  { key: "nome", placeholder: "Nome da unidade" },
+  { key: "bairro", placeholder: "Bairro" },
+  { key: "endereco", placeholder: "Endereço completo", span: true },
+  { key: "telefone", placeholder: "Telefone" },
+  { key: "whatsapp", placeholder: "WhatsApp (ex: 5521999990001)" },
+  { key: "horario_semana", placeholder: "Seg–Sex (ex: Seg–Sex: 9h às 20h)", span: true },
+  { key: "horario_sabado", placeholder: "Sábado (ex: Sáb: 9h às 18h)" },
   { key: "horario_domingo", placeholder: "Domingo (ex: Dom: Fechado)" },
 ];
 
@@ -601,9 +599,9 @@ function UnidadesTab({
 type FinPeriod = "7d" | "30d" | "ano" | "tudo";
 
 const FIN_PERIODS: { key: FinPeriod; label: string }[] = [
-  { key: "7d",   label: "7 dias" },
-  { key: "30d",  label: "30 dias" },
-  { key: "ano",  label: "Este ano" },
+  { key: "7d", label: "7 dias" },
+  { key: "30d", label: "30 dias" },
+  { key: "ano", label: "Este ano" },
   { key: "tudo", label: "Tudo" },
 ];
 
@@ -650,11 +648,11 @@ function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
   const [period, setPeriod] = useState<FinPeriod>("30d");
   const [commRate, setCommRate] = useState("40");
 
-  const subset   = getAgsByPeriod(agendamentos, period);
+  const subset = getAgsByPeriod(agendamentos, period);
   const confirmed = subset.filter((a) => a.status !== "cancelado");
   const cancelledCount = subset.filter((a) => a.status === "cancelado").length;
   const totalRevenue = confirmed.reduce((s, a) => s + (a.servico_preco ?? 0), 0);
-  const avgTicket    = confirmed.length > 0 ? totalRevenue / confirmed.length : 0;
+  const avgTicket = confirmed.length > 0 ? totalRevenue / confirmed.length : 0;
   const rate = Math.min(100, Math.max(0, parseFloat(commRate) || 0)) / 100;
 
   // Receita por unidade
@@ -666,7 +664,7 @@ function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
     byUnit[k].count++;
   }
   const unitRows = Object.values(byUnit).sort((a, b) => b.receita - a.receita);
-  const maxUnit  = unitRows[0]?.receita ?? 1;
+  const maxUnit = unitRows[0]?.receita ?? 1;
 
   // Receita por barbeiro
   const byBarber: Record<string, { nome: string; receita: number; count: number }> = {};
@@ -677,7 +675,7 @@ function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
     byBarber[k].count++;
   }
   const barberRows = Object.values(byBarber).sort((a, b) => b.receita - a.receita);
-  const maxBarber  = barberRows[0]?.receita ?? 1;
+  const maxBarber = barberRows[0]?.receita ?? 1;
 
   return (
     <div className="space-y-6">
@@ -688,9 +686,8 @@ function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
             <button
               key={key}
               onClick={() => setPeriod(key)}
-              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${
-                period === key ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
-              }`}
+              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${period === key ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
+                }`}
             >
               {label}
             </button>
@@ -710,10 +707,10 @@ function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Receita total"    value={`R$ ${totalRevenue.toFixed(0)}`}              sub={`${confirmed.length} atendimento${confirmed.length !== 1 ? "s" : ""}`} accent />
-        <KpiCard label="Ticket médio"     value={`R$ ${avgTicket.toFixed(0)}`} />
-        <KpiCard label="Cancelamentos"    value={String(cancelledCount)}                        sub={subset.length > 0 ? `${Math.round((cancelledCount / subset.length) * 100)}% do total` : "—"} />
-        <KpiCard label="Est. comissões"   value={`R$ ${Math.round(totalRevenue * rate)}`}       sub={`${commRate}% da receita`} />
+        <KpiCard label="Receita total" value={`R$ ${totalRevenue.toFixed(0)}`} sub={`${confirmed.length} atendimento${confirmed.length !== 1 ? "s" : ""}`} accent />
+        <KpiCard label="Ticket médio" value={`R$ ${avgTicket.toFixed(0)}`} />
+        <KpiCard label="Cancelamentos" value={String(cancelledCount)} sub={subset.length > 0 ? `${Math.round((cancelledCount / subset.length) * 100)}% do total` : "—"} />
+        <KpiCard label="Est. comissões" value={`R$ ${Math.round(totalRevenue * rate)}`} sub={`${commRate}% da receita`} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -749,7 +746,7 @@ function FinanceiroTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
                   <span className="text-[#f5f0eb] text-xs w-24 truncate shrink-0">{b.nome}</span>
                   <MiniBar value={b.receita} max={maxBarber} />
                   <span className="text-[#3aab4a] text-xs whitespace-nowrap">R$ {b.receita}</span>
-                  <span className="text-[#a8a8a8] text-[10px] w-20 text-right shrink-0">
+                  <span className="text-[#a8a8a8] text-[10px] text-right px-2">
                     comiss. R$ {Math.round(b.receita * rate)}
                   </span>
                 </div>
@@ -781,7 +778,7 @@ function RelatoriosTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
     servicoCounts[k].count++;
   }
   const servicoRows = Object.values(servicoCounts).sort((a, b) => b.count - a.count).slice(0, 8);
-  const maxServico  = servicoRows[0]?.count ?? 1;
+  const maxServico = servicoRows[0]?.count ?? 1;
 
   // Ranking barbeiros por atendimentos
   const barberCounts: Record<string, { nome: string; count: number }> = {};
@@ -791,22 +788,22 @@ function RelatoriosTab({ agendamentos }: { agendamentos: DBAgendamento[] }) {
     barberCounts[k].count++;
   }
   const barberCountRows = Object.values(barberCounts).sort((a, b) => b.count - a.count);
-  const maxBarberCount  = barberCountRows[0]?.count ?? 1;
+  const maxBarberCount = barberCountRows[0]?.count ?? 1;
 
   // Taxa de retorno
   const clientMap: Record<string, number> = {};
   for (const a of confirmed) clientMap[a.cliente_telefone] = (clientMap[a.cliente_telefone] ?? 0) + 1;
-  const totalClientes  = Object.keys(clientMap).length;
-  const retornantes    = Object.values(clientMap).filter((c) => c > 1).length;
-  const retentionRate  = totalClientes > 0 ? Math.round((retornantes / totalClientes) * 100) : 0;
+  const totalClientes = Object.keys(clientMap).length;
+  const retornantes = Object.values(clientMap).filter((c) => c > 1).length;
+  const retentionRate = totalClientes > 0 ? Math.round((retornantes / totalClientes) * 100) : 0;
 
   return (
     <div className="space-y-6">
       {/* Taxa de retorno */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KpiCard label="Clientes únicos"      value={String(totalClientes)} />
+        <KpiCard label="Clientes únicos" value={String(totalClientes)} />
         <KpiCard label="Clientes recorrentes" value={String(retornantes)} sub="2+ visitas" />
-        <KpiCard label="Taxa de retorno"      value={`${retentionRate}%`} accent />
+        <KpiCard label="Taxa de retorno" value={`${retentionRate}%`} accent />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -914,8 +911,8 @@ function AgendaTab({
   const agsNoDia = (dateStr: string) =>
     agsFiltrados.filter((a) => a.data === dateStr);
 
-  const prevDay  = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
-  const nextDay  = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
+  const prevDay = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
+  const nextDay = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
   const prevWeek = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
   const nextWeek = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; });
 
@@ -923,7 +920,7 @@ function AgendaTab({
     <div>
       {/* Top bar: selector (admin) + view toggle */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap p-2">
           {isAdmin && (
             <select
               value={selectedProfId}
@@ -937,29 +934,30 @@ function AgendaTab({
             </select>
           )}
           {profAtivo && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pl-1">
               {profAtivo.foto && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={profAtivo.foto} alt={profAtivo.nome} className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10" />
               )}
-              <span className="text-[#f5f0eb] text-sm font-medium">{profAtivo.nome}</span>
-              {profAtivo.especialidade && (
-                <span className="text-[#a8a8a8] text-xs">— {profAtivo.especialidade}</span>
-              )}
+              <div className="flex flex-col justify-center sm:flex-row items-center gap-2">
+                <span className="text-[#f5f0eb] text-sm font-medium">{profAtivo.nome}</span>
+                {profAtivo.especialidade && (
+                  <span className="text-[#a8a8a8] text-xs">— {profAtivo.especialidade}</span>
+                )}
+              </div>
             </div>
           )}
           {!profAtivo && isAdmin && (
             <span className="text-[#a8a8a8] text-sm">Selecione um barbeiro para ver a agenda</span>
           )}
         </div>
-        <div className="flex gap-1 p-1 bg-[#1a1a1a] rounded-sm ring-1 ring-white/5">
+        <div className="flex gap-1 p-1 bg-[#1a1a1a] rounded-sm ring-1 ring-white/5 ml-2">
           {(["semana", "dia"] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${
-                view === v ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
-              }`}
+              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${view === v ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
+                }`}
             >
               {v === "dia" ? "Dia" : "Semana"}
             </button>
@@ -984,7 +982,7 @@ function AgendaTab({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-2">
             {weekDates.map((date, i) => {
               const ds = fmtDate(date);
               const dayAgs = agsNoDia(ds);
@@ -994,21 +992,18 @@ function AgendaTab({
                 <div
                   key={ds}
                   onClick={() => { setCurrentDate(new Date(date)); setView("dia"); }}
-                  className={`rounded-sm p-3 cursor-pointer transition-all ring-1 ${
-                    isToday
+                  className={`rounded-sm p-3 cursor-pointer transition-all ring-1 ${isToday
                       ? "bg-[#1a2a1a] ring-[#3aab4a]/40 hover:ring-[#3aab4a]"
                       : "bg-[#1a1a1a] ring-white/5 hover:ring-white/20"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className={`text-[10px] font-medium uppercase tracking-wider ${
-                      isToday ? "text-[#3aab4a]" : isPast ? "text-[#a8a8a8]/40" : "text-[#a8a8a8]"
-                    }`}>
+                    <span className={`text-[10px] font-medium uppercase tracking-wider ${isToday ? "text-[#3aab4a]" : isPast ? "text-[#a8a8a8]/40" : "text-[#a8a8a8]"
+                      }`}>
                       {AGENDA_WEEK_DAYS[i]}
                     </span>
-                    <span className={`text-xl font-semibold leading-none ${
-                      isToday ? "text-[#3aab4a]" : isPast ? "text-[#f5f0eb]/25" : "text-[#f5f0eb]"
-                    }`}>
+                    <span className={`text-xl font-semibold leading-none ${isToday ? "text-[#3aab4a]" : isPast ? "text-[#f5f0eb]/25" : "text-[#f5f0eb]"
+                      }`}>
                       {date.getDate()}
                     </span>
                   </div>
@@ -1058,9 +1053,8 @@ function AgendaTab({
               return (
                 <div
                   key={h}
-                  className={`flex gap-3 items-center px-4 py-3 rounded-sm ring-1 transition-all ${
-                    ag ? "bg-[#1a2a1a] ring-[#3aab4a]/25" : "bg-[#1a1a1a] ring-white/5"
-                  }`}
+                  className={`flex gap-3 items-center px-4 py-3 rounded-sm ring-1 transition-all ${ag ? "bg-[#1a2a1a] ring-[#3aab4a]/25" : "bg-[#1a1a1a] ring-white/5"
+                    }`}
                 >
                   <span className="text-[#a8a8a8] text-xs w-10 shrink-0 font-mono">{h}</span>
                   <div className="w-px h-4 bg-white/10 shrink-0" />
@@ -1074,11 +1068,10 @@ function AgendaTab({
                       {ag.servico_preco !== null && (
                         <span className="text-[#a8a8a8] text-xs">R$ {ag.servico_preco}</span>
                       )}
-                      <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-sm ${
-                        ag.status === "confirmado"
+                      <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-sm ${ag.status === "confirmado"
                           ? "bg-[#3aab4a]/15 text-[#4ec55e]"
                           : "bg-yellow-400/10 text-yellow-400"
-                      }`}>
+                        }`}>
                         {ag.status}
                       </span>
                     </div>
@@ -1202,12 +1195,12 @@ export default function AdminPage() {
   }
 
   const tabs = [
-    { id: "agendamentos" as Tab, label: "Agendamentos", Icon: Calendar,      count: agendamentos.filter((a) => a.data >= new Date().toISOString().split("T")[0] && a.status !== "cancelado").length },
-    { id: "barbeiros"    as Tab, label: "Barbeiros",    Icon: Users,         count: profissionais.filter((p) => p.ativo).length },
-    { id: "unidades"     as Tab, label: "Unidades",     Icon: MapPin,        count: unidades.filter((u) => u.ativo).length },
-    { id: "agenda"       as Tab, label: "Agenda",       Icon: CalendarDays,  count: null },
-    { id: "financeiro"   as Tab, label: "Financeiro",   Icon: TrendingUp,    count: null },
-    { id: "relatorios"   as Tab, label: "Relatórios",   Icon: BarChart2,     count: null },
+    { id: "agendamentos" as Tab, label: "Agendamentos", Icon: Calendar, count: agendamentos.filter((a) => a.data >= new Date().toISOString().split("T")[0] && a.status !== "cancelado").length },
+    { id: "barbeiros" as Tab, label: "Barbeiros", Icon: Users, count: profissionais.filter((p) => p.ativo).length },
+    { id: "unidades" as Tab, label: "Unidades", Icon: MapPin, count: unidades.filter((u) => u.ativo).length },
+    { id: "agenda" as Tab, label: "Agenda", Icon: CalendarDays, count: null },
+    { id: "financeiro" as Tab, label: "Financeiro", Icon: TrendingUp, count: null },
+    { id: "relatorios" as Tab, label: "Relatórios", Icon: BarChart2, count: null },
   ];
 
   return (
@@ -1237,9 +1230,8 @@ export default function AdminPage() {
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-5 py-2 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${
-                tab === id ? "bg-[#3aab4a] text-[#111111]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
-              }`}
+              className={`flex items-center gap-2 px-5 py-2 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${tab === id ? "bg-[#3aab4a] text-[#111111]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
+                }`}
             >
               <Icon size={13} />
               {label}
@@ -1259,7 +1251,7 @@ export default function AdminPage() {
           transition={{ duration: 0.2 }}
           className="w-full overflow-x-auto md:overflow-visible"
         >
-   
+
           {tab === "agendamentos" && (
             <AgendamentosTab agendamentos={agendamentos} profissionais={profissionais} unidades={unidades} onRefresh={loadData} />
           )}
