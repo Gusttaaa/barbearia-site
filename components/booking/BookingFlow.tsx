@@ -131,6 +131,7 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
   const goBack = () => {
     let prev = stepOrder[currentStepIndex - 1];
     if (prev === "servico" && booking.servico && initialServico) prev = "unidade";
+    if (prev === "unidade") setBooking({});
     if (prev) setStep(prev);
   };
 
@@ -289,7 +290,7 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
               <h2 className="font-display text-2xl text-[#f5f0eb] tracking-wide mb-2">ESCOLHA O PROFISSIONAL</h2>
               <p className="text-[#a8a8a8] text-sm mb-6">Selecione com quem quer ser atendido</p>
               {dbProfissionais.length === 0 ? (
-                <p className="text-[#a8a8a8] text-sm">Carregando profissionais...</p>
+                <p className="text-[#a8a8a8] text-sm">Não há profissionais disponíveis para a unidade selecionada.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {dbProfissionais.map((p) => (

@@ -73,7 +73,7 @@ export default function CartDrawer() {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto py-4 space-y-3 p-2">
               {items.map(({ produto, quantidade }) => (
                 <div
                   key={produto.id}
@@ -124,7 +124,7 @@ export default function CartDrawer() {
               ))}
             </div>
 
-            <div className="border-t border-white/5 pt-4 space-y-3">
+            <div className="border-t border-white/5 pt-4 space-y-3 p-4">
               <div className="flex items-center justify-between">
                 <span className="text-[#a8a8a8] text-sm">Subtotal</span>
                 <span className="font-display text-2xl text-[#f5f0eb]">

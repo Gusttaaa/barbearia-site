@@ -62,7 +62,7 @@ export default function Unidades() {
                 delay: 0.1 * i + 0.3,
                 ease: "easeOut" as const,
               }}
-              className="group bg-[#272727] rounded-sm ring-1 ring-white/5 overflow-hidden hover:ring-[#3aab4a]/30 transition-all duration-300"
+              className="group bg-[#272727] rounded-sm ring-1 ring-white/5 overflow-hidden hover:ring-[#3aab4a]/30 transition-all duration-300 flex flex-col justify-between"
             >
               {/* Unit image */}
               <div className="relative aspect-video overflow-hidden">
@@ -87,8 +87,16 @@ export default function Unidades() {
                     size={14}
                     className="text-[#3aab4a] mt-0.5 shrink-0"
                   />
+
+      
                   <p className="text-[#a8a8a8] text-sm leading-relaxed">
-                    {unidade.endereco}
+                    {(unidade.endereco || "").split("—").map((part, idx, arr) => (
+                      <span key={idx}>
+                        {part.trim()}
+                        {idx < arr.length - 1 && <><br /></>}
+                      </span>
+                    ))}
+               
                   </p>
                 </div>
 
@@ -105,7 +113,7 @@ export default function Unidades() {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-stretch lg:flex-row gap-2">
                   <a
                     href={`https://wa.me/${unidade.whatsapp}`}
                     target="_blank"

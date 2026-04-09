@@ -1232,7 +1232,7 @@ export default function AdminPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-[#1a1a1a] rounded-sm ring-1 ring-white/5 mb-8 w-fit">
+        <div className="flex gap-1 p-1 bg-[#1a1a1a] rounded-sm ring-1 ring-white/5 mb-8 w-full overflow-x-auto md:overflow-visible">
           {tabs.map(({ id, label, Icon, count }) => (
             <button
               key={id}
@@ -1252,7 +1252,14 @@ export default function AdminPage() {
           ))}
         </div>
 
-        <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="w-full overflow-x-auto md:overflow-visible"
+        >
+   
           {tab === "agendamentos" && (
             <AgendamentosTab agendamentos={agendamentos} profissionais={profissionais} unidades={unidades} onRefresh={loadData} />
           )}
