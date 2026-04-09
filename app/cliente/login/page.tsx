@@ -76,8 +76,6 @@ export default function LoginPage() {
         default:
           setError(result.error.message);
       }
-    } else if (isSignUp) {
-      setError("Conta criada! Verifique seu e-mail para confirmar.");
     } else {
       router.push("/cliente");
     }
