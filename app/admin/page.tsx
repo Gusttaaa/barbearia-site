@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import {
   LogOut, Calendar, CalendarDays, Users, MapPin, Plus, Check,
   Edit2, Trash2, AlertCircle, Loader2, BarChart2, TrendingUp,
-  ChevronLeft, ChevronRight, Lock, Unlock,
+  ChevronLeft, ChevronRight, Lock, Unlock, ShoppingBag, Upload, X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { servicos } from "@/lib/data/servicos";
@@ -55,6 +55,18 @@ interface DBAgendamento {
   status: string;
 }
 
+interface DBProduto {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  categoria: string;
+  imagem: string | null;
+  destaque: boolean;
+  estoque: number;
+  ativo: boolean;
+}
+
 interface Bloqueio {
   id: string;
   horario: string | null;
@@ -62,7 +74,7 @@ interface Bloqueio {
   data: string;
 }
 
-type Tab = "agendamentos" | "barbeiros" | "unidades" | "financeiro" | "relatorios" | "agenda";
+type Tab = "agendamentos" | "barbeiros" | "unidades" | "produtos" | "financeiro" | "relatorios" | "agenda";
 
 const HORARIOS = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -589,6 +601,417 @@ function UnidadesTab({
                     {u.ativo ? "Desativar" : "Ativar"}
                   </button>
                   <button onClick={() => handleDelete(u.id)} className="flex-1 py-2 text-[10px] text-[#a8a8a8] hover:text-red-400 hover:bg-white/5 transition-all flex items-center justify-center gap-1">
+                    <Trash2 size={11} /> Remover
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Produtos Tab ─────────────────────────────────────────────────────────────
+
+const CATEGORIAS_PRODUTO = [
+  { value: "pomada", label: "Pomadas" },
+  { value: "shampoo", label: "Shampoos" },
+  { value: "barba", label: "Barba" },
+  { value: "acessorios", label: "Acessórios" },
+];
+
+type ProdutoForm = {
+  nome: string;
+  descricao: string;
+  preco: string;
+  categoria: string;
+  imagem: string;
+  destaque: boolean;
+  estoque: string;
+  ativo: boolean;
+};
+
+const EMPTY_PRODUTO_FORM: ProdutoForm = {
+  nome: "", descricao: "", preco: "", categoria: "pomada",
+  imagem: "", destaque: false, estoque: "0", ativo: true,
+};
+
+function ImageUploader({
+  onUploaded,
+}: {
+  value: string;
+  onUploaded: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("produtos").upload(path, file, { upsert: false });
+    if (!error) {
+      const { data } = supabase.storage.from("produtos").getPublicUrl(path);
+      onUploaded(data.publicUrl);
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className={`flex items-center gap-2 px-4 py-2.5 rounded-sm ring-1 text-xs font-medium transition-all cursor-pointer select-none w-fit ${uploading ? "opacity-50 cursor-not-allowed ring-white/5 text-[#a8a8a8]" : "ring-white/10 text-[#a8a8a8] hover:ring-[#3aab4a]/40 hover:text-[#f5f0eb] bg-[#0f0f0f]"}`}>
+        {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+        {uploading ? "Enviando..." : "Escolher imagem"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          disabled={uploading}
+          onChange={handleFile}
+        />
+      </label>
+      <p className="text-[#a8a8a8]/40 text-[10px]">JPG, PNG, WEBP · máx. 5 MB</p>
+    </div>
+  );
+}
+
+function PFLabel({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div className="mb-1.5">
+      <span className="text-[#f5f0eb] text-xs font-medium">{label}</span>
+      <span className="text-[#a8a8a8]/60 text-[11px] ml-2">{hint}</span>
+    </div>
+  );
+}
+
+function ProdutoFormPanel({
+  form, setForm, onSave, onCancel, saving, title,
+}: {
+  form: ProdutoForm;
+  setForm: React.Dispatch<React.SetStateAction<ProdutoForm>>;
+  onSave: () => void;
+  onCancel: () => void;
+  saving: boolean;
+  title: string;
+}) {
+  const inputCls = "w-full bg-[#0f0f0f] ring-1 ring-white/10 rounded-sm px-3 py-2.5 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/30 focus:outline-none focus:ring-[#3aab4a] transition-all";
+
+  return (
+    <div className="bg-[#1a1a1a] rounded-sm ring-1 ring-white/8 p-5 mb-5 space-y-5">
+      {/* Cabeçalho */}
+      <div className="flex items-center gap-3 pb-4 border-b border-white/5">
+        <div className="w-7 h-7 rounded-sm bg-[#3aab4a]/10 flex items-center justify-center shrink-0">
+          <ShoppingBag size={13} className="text-[#3aab4a]" />
+        </div>
+        <div>
+          <p className="text-[#f5f0eb] text-sm font-medium">{title}</p>
+          <p className="text-[#a8a8a8] text-[11px] mt-0.5">Preencha todos os campos obrigatórios marcados com *</p>
+        </div>
+      </div>
+
+      {/* Linha 1: Nome + Categoria */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="sm:col-span-2">
+          <PFLabel label="Nome do produto *" hint="Como vai aparecer na loja" />
+          <input
+            className={inputCls}
+            placeholder='Ex: "Pomada Modeladora Strong"'
+            value={form.nome}
+            onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+          />
+        </div>
+        <div>
+          <PFLabel label="Categoria *" hint="Tipo do produto" />
+          <select
+            value={form.categoria}
+            onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
+            className={inputCls}
+          >
+            {CATEGORIAS_PRODUTO.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Linha 2: Descrição */}
+      <div>
+        <PFLabel label="Descrição" hint="Um resumo curto que aparece embaixo do nome" />
+        <textarea
+          className={`${inputCls} resize-none h-20 leading-relaxed`}
+          placeholder='Ex: "Fixação forte com acabamento opaco. Ideal para degradê e penteados modernos."'
+          value={form.descricao}
+          onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+        />
+      </div>
+
+      {/* Linha 3: Preço + Estoque */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <PFLabel label="Preço (R$) *" hint="Valor cobrado ao cliente" />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a8a8a8] text-sm pointer-events-none">R$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={form.preco}
+              onChange={(e) => setForm((f) => ({ ...f, preco: e.target.value }))}
+              className={`${inputCls} pl-9`}
+            />
+          </div>
+        </div>
+        <div>
+          <PFLabel label="Estoque *" hint="Quantidade disponível para venda" />
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              placeholder="0"
+              value={form.estoque}
+              onChange={(e) => setForm((f) => ({ ...f, estoque: e.target.value }))}
+              className={inputCls}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a8a8a8]/40 text-[10px] pointer-events-none">un.</span>
+          </div>
+          {parseInt(form.estoque) === 0 && (
+            <p className="text-yellow-500/70 text-[10px] mt-1">Estoque 0 = botão "Esgotado" na loja</p>
+          )}
+          {parseInt(form.estoque) > 0 && parseInt(form.estoque) < 5 && (
+            <p className="text-orange-400/70 text-[10px] mt-1">Estoque baixo — aparece aviso na loja</p>
+          )}
+        </div>
+      </div>
+
+      {/* Linha 4: Imagem */}
+      <div>
+        <PFLabel label="Foto do produto" hint="Recomendado: imagem quadrada, mín. 400×400 px" />
+        <div className="flex items-start gap-4 mt-1">
+          {/* Preview */}
+          <div className="relative w-28 h-28 shrink-0 rounded-sm overflow-hidden ring-1 ring-white/10 bg-[#0f0f0f] flex items-center justify-center">
+            {form.imagem ? (
+              <>
+                <img src={form.imagem} alt="preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, imagem: "" }))}
+                  className="absolute top-1 right-1 bg-[#111111]/80 rounded-full p-1 text-[#a8a8a8] hover:text-red-400 transition-colors"
+                >
+                  <X size={10} />
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-[#a8a8a8]/20">
+                <ShoppingBag size={24} />
+                <span className="text-[9px]">Sem foto</span>
+              </div>
+            )}
+          </div>
+          {/* Upload */}
+          <ImageUploader value={form.imagem} onUploaded={(url) => setForm((f) => ({ ...f, imagem: url }))} />
+        </div>
+      </div>
+
+      {/* Linha 5: Checkboxes */}
+      <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1 border-t border-white/5">
+        <label className="flex items-start gap-3 cursor-pointer select-none group">
+          <input
+            type="checkbox"
+            checked={form.destaque}
+            onChange={(e) => setForm((f) => ({ ...f, destaque: e.target.checked }))}
+            className="accent-[#3aab4a] mt-0.5 shrink-0"
+          />
+          <div>
+            <p className="text-[#f5f0eb] text-xs font-medium group-hover:text-[#3aab4a] transition-colors">Produto em destaque</p>
+            <p className="text-[#a8a8a8]/60 text-[11px] mt-0.5">Aparece com um selo verde de "Destaque" na loja</p>
+          </div>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer select-none group">
+          <input
+            type="checkbox"
+            checked={form.ativo}
+            onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
+            className="accent-[#3aab4a] mt-0.5 shrink-0"
+          />
+          <div>
+            <p className="text-[#f5f0eb] text-xs font-medium group-hover:text-[#3aab4a] transition-colors">Produto ativo</p>
+            <p className="text-[#a8a8a8]/60 text-[11px] mt-0.5">Desmarque para ocultar da loja sem excluir</p>
+          </div>
+        </label>
+      </div>
+
+      <FormActions onSave={onSave} onCancel={onCancel} saving={saving} />
+    </div>
+  );
+}
+
+function ProdutosTab({
+  produtos,
+  onRefresh,
+}: {
+  produtos: DBProduto[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ProdutoForm>(EMPTY_PRODUTO_FORM);
+  const [saving, setSaving] = useState(false);
+  const [filtroCat, setFiltroCat] = useState<string>("todos");
+
+  const filtrados = filtroCat === "todos" ? produtos : produtos.filter((p) => p.categoria === filtroCat);
+
+  const parseForm = () => ({
+    nome: form.nome.trim(),
+    descricao: form.descricao.trim(),
+    preco: parseFloat(form.preco) || 0,
+    categoria: form.categoria,
+    imagem: form.imagem.trim() || null,
+    destaque: form.destaque,
+    estoque: parseInt(form.estoque) || 0,
+    ativo: form.ativo,
+  });
+
+  const handleAdd = async () => {
+    if (!form.nome) return;
+    setSaving(true);
+    await supabase.from("produtos").insert(parseForm());
+    setSaving(false);
+    setShowForm(false);
+    setForm(EMPTY_PRODUTO_FORM);
+    await onRefresh();
+  };
+
+  const startEdit = (p: DBProduto) => {
+    setEditingId(p.id);
+    setForm({
+      nome: p.nome,
+      descricao: p.descricao ?? "",
+      preco: String(p.preco),
+      categoria: p.categoria,
+      imagem: p.imagem ?? "",
+      destaque: p.destaque,
+      estoque: String(p.estoque),
+      ativo: p.ativo,
+    });
+    setShowForm(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    await supabase.from("produtos").update(parseForm()).eq("id", editingId);
+    setSaving(false);
+    setEditingId(null);
+    setForm(EMPTY_PRODUTO_FORM);
+    await onRefresh();
+  };
+
+  const handleToggle = async (p: DBProduto) => {
+    await supabase.from("produtos").update({ ativo: !p.ativo }).eq("id", p.id);
+    await onRefresh();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Remover produto permanentemente?")) return;
+    await supabase.from("produtos").delete().eq("id", id);
+    await onRefresh();
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFiltroCat("todos")}
+            className={`px-3 py-1.5 text-[10px] tracking-widest uppercase font-medium rounded-sm ring-1 transition-all ${filtroCat === "todos" ? "bg-[#3aab4a] text-[#111111] ring-[#3aab4a]" : "bg-[#272727] text-[#a8a8a8] ring-white/5 hover:ring-[#3aab4a]/30"}`}
+          >
+            Todos ({produtos.length})
+          </button>
+          {CATEGORIAS_PRODUTO.map((cat) => {
+            const cnt = produtos.filter((p) => p.categoria === cat.value).length;
+            return (
+              <button
+                key={cat.value}
+                onClick={() => setFiltroCat(cat.value)}
+                className={`px-3 py-1.5 text-[10px] tracking-widest uppercase font-medium rounded-sm ring-1 transition-all ${filtroCat === cat.value ? "bg-[#3aab4a] text-[#111111] ring-[#3aab4a]" : "bg-[#272727] text-[#a8a8a8] ring-white/5 hover:ring-[#3aab4a]/30"}`}
+              >
+                {cat.label} ({cnt})
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => {
+            setShowForm((v) => {
+              if (!v) setForm(EMPTY_PRODUTO_FORM);
+              return !v;
+            });
+            setEditingId(null);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-[#3aab4a] text-[#111111] text-xs font-semibold tracking-wider uppercase rounded-sm hover:bg-[#4ec55e] transition-colors"
+        >
+          <Plus size={13} /> Novo produto
+        </button>
+      </div>
+
+      {showForm && (
+        <ProdutoFormPanel form={form} setForm={setForm} onSave={handleAdd} onCancel={() => { setShowForm(false); setForm(EMPTY_PRODUTO_FORM); }} saving={saving} title="Novo produto" />
+      )}
+
+      {filtrados.length === 0 && !showForm && (
+        <p className="text-[#a8a8a8] text-sm py-8 text-center">Nenhum produto cadastrado.</p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filtrados.map((p) => (
+          <div key={p.id} className={`bg-[#1a1a1a] rounded-sm ring-1 ring-white/5 overflow-hidden ${!p.ativo ? "opacity-50" : ""}`}>
+            {editingId === p.id ? (
+              <div className="p-4">
+                <ProdutoFormPanel form={form} setForm={setForm} onSave={handleSaveEdit} onCancel={() => { setEditingId(null); setForm(EMPTY_PRODUTO_FORM); }} saving={saving} title="Editar produto" />
+              </div>
+            ) : (
+              <>
+                {p.imagem && (
+                  <div className="relative aspect-video overflow-hidden">
+                    <img src={p.imagem} alt={p.nome} className="w-full h-full object-cover" />
+                    {p.destaque && (
+                      <span className="absolute top-2 left-2 bg-[#3aab4a] text-[#111111] text-[9px] font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm">
+                        Destaque
+                      </span>
+                    )}
+                    {!p.ativo && (
+                      <span className="absolute top-2 right-2 bg-red-500/80 text-white text-[9px] font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm">
+                        Inativo
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="p-3">
+                  <p className="text-[10px] tracking-widest uppercase text-[#3aab4a] mb-0.5">
+                    {CATEGORIAS_PRODUTO.find((c) => c.value === p.categoria)?.label}
+                  </p>
+                  <p className="text-[#f5f0eb] text-sm font-medium truncate">{p.nome}</p>
+                  {p.descricao && (
+                    <p className="text-[#a8a8a8] text-[11px] mt-0.5 line-clamp-2">{p.descricao}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[#3aab4a] font-semibold text-sm">R$ {p.preco.toFixed(2).replace(".", ",")}</span>
+                    <span className="text-[#a8a8a8] text-[10px]">{p.estoque} em estoque</span>
+                  </div>
+                </div>
+                <div className="flex border-t border-white/5 divide-x divide-white/5">
+                  <button onClick={() => startEdit(p)} className="flex-1 py-2 text-[10px] text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 transition-all flex items-center justify-center gap-1">
+                    <Edit2 size={11} /> Editar
+                  </button>
+                  <button onClick={() => handleToggle(p)} className="flex-1 py-2 text-[10px] text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 transition-all">
+                    {p.ativo ? "Desativar" : "Ativar"}
+                  </button>
+                  <button onClick={() => handleDelete(p.id)} className="flex-1 py-2 text-[10px] text-[#a8a8a8] hover:text-red-400 hover:bg-white/5 transition-all flex items-center justify-center gap-1">
                     <Trash2 size={11} /> Remover
                   </button>
                 </div>
@@ -1282,16 +1705,19 @@ export default function AdminPage() {
   const [agendamentos, setAgendamentos] = useState<DBAgendamento[]>([]);
   const [profissionais, setProfissionais] = useState<DBProfissional[]>([]);
   const [unidades, setUnidades] = useState<DBUnidade[]>([]);
+  const [produtos, setProdutos] = useState<DBProduto[]>([]);
 
   const loadData = useCallback(async () => {
-    const [{ data: ags }, { data: profs }, { data: units }] = await Promise.all([
+    const [{ data: ags }, { data: profs }, { data: units }, { data: prods }] = await Promise.all([
       supabase.from("agendamentos").select("*").order("data", { ascending: false }).limit(300),
       supabase.from("profissionais").select("*").order("nome"),
       supabase.from("unidades").select("*").order("nome"),
+      supabase.from("produtos").select("*").order("nome"),
     ]);
     setAgendamentos(ags ?? []);
     setProfissionais(profs ?? []);
     setUnidades(units ?? []);
+    setProdutos(prods ?? []);
   }, []);
 
   useEffect(() => {
@@ -1379,6 +1805,7 @@ export default function AdminPage() {
     { id: "agendamentos" as Tab, label: "Agendamentos", Icon: Calendar, count: agendamentos.filter((a) => a.data >= new Date().toISOString().split("T")[0] && a.status !== "cancelado").length },
     { id: "barbeiros" as Tab, label: "Barbeiros", Icon: Users, count: profissionais.filter((p) => p.ativo).length },
     { id: "unidades" as Tab, label: "Unidades", Icon: MapPin, count: unidades.filter((u) => u.ativo).length },
+    { id: "produtos" as Tab, label: "Produtos", Icon: ShoppingBag, count: produtos.filter((p) => p.ativo).length },
     { id: "agenda" as Tab, label: "Agenda", Icon: CalendarDays, count: null },
     { id: "financeiro" as Tab, label: "Financeiro", Icon: TrendingUp, count: null },
     { id: "relatorios" as Tab, label: "Relatórios", Icon: BarChart2, count: null },
@@ -1441,6 +1868,9 @@ export default function AdminPage() {
           )}
           {tab === "unidades" && (
             <UnidadesTab unidades={unidades} onRefresh={loadData} />
+          )}
+          {tab === "produtos" && (
+            <ProdutosTab produtos={produtos} onRefresh={loadData} />
           )}
           {tab === "agenda" && (
             <AgendaTab
