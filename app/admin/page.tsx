@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import {
   LogOut, Calendar, CalendarDays, Users, MapPin, Plus, Check,
   Edit2, Trash2, AlertCircle, Loader2, BarChart2, TrendingUp,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Lock, Unlock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { servicos } from "@/lib/data/servicos";
@@ -53,6 +53,13 @@ interface DBAgendamento {
   cliente_nome: string;
   cliente_telefone: string;
   status: string;
+}
+
+interface Bloqueio {
+  id: string;
+  horario: string | null;
+  motivo: string | null;
+  data: string;
 }
 
 type Tab = "agendamentos" | "barbeiros" | "unidades" | "financeiro" | "relatorios" | "agenda";
@@ -901,24 +908,98 @@ function AgendaTab({
   );
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
 
+  // Bloqueios
+  const [bloqueiosDia, setBloqueiosDia] = useState<Bloqueio[]>([]);
+  const [bloqueiosSemana, setBloqueiosSemana] = useState<Bloqueio[]>([]);
+  const [motivoBloqueio, setMotivoBloqueio] = useState("");
+  const [savingBloqueio, setSavingBloqueio] = useState(false);
+  const [bloqueiosVersion, setBloqueiosVersion] = useState(0);
+
   const weekDates = getWeekDates(currentDate);
   const profAtivo = profissionais.find((p) => p.id === selectedProfId);
 
   const agsFiltrados = agendamentos.filter(
     (a) => a.profissional_id === selectedProfId && a.status !== "cancelado"
   );
-
-  const agsNoDia = (dateStr: string) =>
-    agsFiltrados.filter((a) => a.data === dateStr);
+  const agsNoDia = (dateStr: string) => agsFiltrados.filter((a) => a.data === dateStr);
 
   const prevDay = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
   const nextDay = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
   const prevWeek = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
   const nextWeek = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; });
 
+  // Fetch bloqueios — dia
+  useEffect(() => {
+    if (view !== "dia" || !selectedProfId) { setBloqueiosDia([]); return; }
+    const dateStr = fmtDate(currentDate);
+    fetch(`/api/horarios-bloqueados?profissionalId=${selectedProfId}&data=${dateStr}`)
+      .then((r) => r.json())
+      .then((d) => setBloqueiosDia(d.rows ?? []))
+      .catch(() => setBloqueiosDia([]));
+  }, [view, selectedProfId, currentDate, bloqueiosVersion]);
+
+  // Fetch bloqueios — semana
+  useEffect(() => {
+    if (view !== "semana" || !selectedProfId) { setBloqueiosSemana([]); return; }
+    const dates = getWeekDates(currentDate);
+    const dataInicio = fmtDate(dates[0]);
+    const dataFim = fmtDate(dates[dates.length - 1]);
+    fetch(`/api/horarios-bloqueados?profissionalId=${selectedProfId}&dataInicio=${dataInicio}&dataFim=${dataFim}`)
+      .then((r) => r.json())
+      .then((d) => setBloqueiosSemana(d.rows ?? []))
+      .catch(() => setBloqueiosSemana([]));
+  }, [view, selectedProfId, currentDate, bloqueiosVersion]);
+
+  // Derived
+  const diaBloqueadoRow = bloqueiosDia.find((b) => b.horario === null) ?? null;
+  const diaBloqueado = !!diaBloqueadoRow;
+  const isDiaBloqNaSemana = (ds: string) => bloqueiosSemana.some((b) => b.data === ds && b.horario === null);
+  const bloqueioDoHorario = (h: string) => bloqueiosDia.find((b) => b.horario === h) ?? null;
+
+  const bumpVersion = () => setBloqueiosVersion((v) => v + 1);
+
+  const handleBloquearHorario = async (h: string) => {
+    if (!selectedProfId) return;
+    setSavingBloqueio(true);
+    await fetch("/api/horarios-bloqueados", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profissionalId: selectedProfId, data: fmtDate(currentDate), horario: h, motivo: motivoBloqueio || null }),
+    });
+    bumpVersion();
+    setSavingBloqueio(false);
+  };
+
+  const handleDesbloquearHorario = async (id: string) => {
+    setSavingBloqueio(true);
+    await fetch(`/api/horarios-bloqueados?id=${id}`, { method: "DELETE" });
+    bumpVersion();
+    setSavingBloqueio(false);
+  };
+
+  const handleBloquearDia = async () => {
+    if (!selectedProfId) return;
+    setSavingBloqueio(true);
+    await fetch("/api/horarios-bloqueados", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profissionalId: selectedProfId, data: fmtDate(currentDate), horario: null, motivo: motivoBloqueio || null }),
+    });
+    bumpVersion();
+    setSavingBloqueio(false);
+  };
+
+  const handleDesbloquearDia = async () => {
+    if (!diaBloqueadoRow) return;
+    setSavingBloqueio(true);
+    await fetch(`/api/horarios-bloqueados?id=${diaBloqueadoRow.id}`, { method: "DELETE" });
+    bumpVersion();
+    setSavingBloqueio(false);
+  };
+
   return (
     <div>
-      {/* Top bar: selector (admin) + view toggle */}
+      {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3 flex-wrap p-2">
           {isAdmin && (
@@ -927,7 +1008,7 @@ function AgendaTab({
               onChange={(e) => setSelectedProfId(e.target.value)}
               className="bg-[#1a1a1a] ring-1 ring-white/10 rounded-sm px-3 py-2 text-[#f5f0eb] text-sm focus:outline-none focus:ring-[#3aab4a] transition-all"
             >
-              <option value="">Selecionar barbeiro…</option>
+              <option value="">Selecionar barbeiro...</option>
               {profissionais.filter((p) => p.ativo).map((p) => (
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
@@ -956,8 +1037,7 @@ function AgendaTab({
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${view === v ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"
-                }`}
+              className={`px-4 py-1.5 text-xs font-medium tracking-wider uppercase rounded-sm transition-all ${view === v ? "bg-[#272727] text-[#f5f0eb]" : "text-[#a8a8a8] hover:text-[#f5f0eb]"}`}
             >
               {v === "dia" ? "Dia" : "Semana"}
             </button>
@@ -966,7 +1046,7 @@ function AgendaTab({
       </div>
 
       {!selectedProfId ? null : view === "semana" ? (
-        /* ── Week view ──────────────────────────────────────────────── */
+        /* Week view */
         <div>
           <div className="flex items-center gap-3 mb-4">
             <button onClick={prevWeek} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
@@ -988,41 +1068,64 @@ function AgendaTab({
               const dayAgs = agsNoDia(ds);
               const isToday = ds === today;
               const isPast = ds < today;
+              const isDiaBloq = isDiaBloqNaSemana(ds);
+              const bloqNoDia = bloqueiosSemana.filter((b) => b.data === ds && b.horario !== null);
+              const motivoDia = bloqueiosSemana.find((b) => b.data === ds && b.horario === null)?.motivo ?? null;
               return (
                 <div
                   key={ds}
                   onClick={() => { setCurrentDate(new Date(date)); setView("dia"); }}
-                  className={`rounded-sm p-3 cursor-pointer transition-all ring-1 ${isToday
-                      ? "bg-[#1a2a1a] ring-[#3aab4a]/40 hover:ring-[#3aab4a]"
-                      : "bg-[#1a1a1a] ring-white/5 hover:ring-white/20"
-                    }`}
+                  className={`rounded-sm p-3 cursor-pointer transition-all ring-1 ${
+                    isDiaBloq
+                      ? "bg-orange-500/5 ring-orange-500/30 hover:ring-orange-500/50"
+                      : isToday
+                        ? "bg-[#1a2a1a] ring-[#3aab4a]/40 hover:ring-[#3aab4a]"
+                        : "bg-[#1a1a1a] ring-white/5 hover:ring-white/20"
+                  }`}
                 >
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className={`text-[10px] font-medium uppercase tracking-wider ${isToday ? "text-[#3aab4a]" : isPast ? "text-[#a8a8a8]/40" : "text-[#a8a8a8]"
-                      }`}>
+                    <span className={`text-[10px] font-medium uppercase tracking-wider ${
+                      isDiaBloq ? "text-orange-400/70" : isToday ? "text-[#3aab4a]" : isPast ? "text-[#a8a8a8]/40" : "text-[#a8a8a8]"
+                    }`}>
                       {AGENDA_WEEK_DAYS[i]}
                     </span>
-                    <span className={`text-xl font-semibold leading-none ${isToday ? "text-[#3aab4a]" : isPast ? "text-[#f5f0eb]/25" : "text-[#f5f0eb]"
+                    <div className="flex items-center gap-1">
+                      {isDiaBloq && <Lock size={9} className="text-orange-400/70" />}
+                      <span className={`text-xl font-semibold leading-none ${
+                        isDiaBloq ? "text-orange-400/60" : isToday ? "text-[#3aab4a]" : isPast ? "text-[#f5f0eb]/25" : "text-[#f5f0eb]"
                       }`}>
-                      {date.getDate()}
-                    </span>
+                        {date.getDate()}
+                      </span>
+                    </div>
                   </div>
-                  {dayAgs.length === 0 ? (
+                  {isDiaBloq ? (
+                    <p className="text-orange-400/60 text-[10px]">
+                      Bloqueado{motivoDia ? ` · ${motivoDia}` : ""}
+                    </p>
+                  ) : dayAgs.length === 0 && bloqNoDia.length === 0 ? (
                     <p className="text-[#a8a8a8]/25 text-[10px]">Livre</p>
                   ) : (
                     <div className="space-y-1">
-                      {dayAgs.slice(0, 3).map((ag) => (
+                      {dayAgs.slice(0, 2).map((ag) => (
                         <div key={ag.id} className="text-[10px] bg-[#3aab4a]/15 text-[#4ec55e] rounded-sm px-1.5 py-0.5 truncate">
                           {ag.horario} · {ag.cliente_nome.split(" ")[0]}
                         </div>
                       ))}
-                      {dayAgs.length > 3 && (
-                        <p className="text-[#a8a8a8] text-[10px]">+{dayAgs.length - 3} mais</p>
+                      {bloqNoDia.slice(0, 1).map((b) => (
+                        <div key={b.id} className="text-[10px] bg-orange-500/15 text-orange-400/80 rounded-sm px-1.5 py-0.5 truncate flex items-center gap-1">
+                          <Lock size={8} /> {b.horario}
+                        </div>
+                      ))}
+                      {dayAgs.length + bloqNoDia.length > 3 && (
+                        <p className="text-[#a8a8a8] text-[10px]">+{dayAgs.length + bloqNoDia.length - 3} mais</p>
                       )}
                     </div>
                   )}
-                  <div className={`mt-2 pt-2 border-t ${isToday ? "border-[#3aab4a]/20" : "border-white/5"}`}>
+                  <div className={`mt-2 pt-2 border-t ${isDiaBloq ? "border-orange-500/20" : isToday ? "border-[#3aab4a]/20" : "border-white/5"}`}>
                     <span className="text-[10px] text-[#a8a8a8]">{dayAgs.length} agend.</span>
+                    {bloqNoDia.length > 0 && !isDiaBloq && (
+                      <span className="ml-2 text-[10px] text-orange-400/60">{bloqNoDia.length} bloq.</span>
+                    )}
                   </div>
                 </div>
               );
@@ -1030,7 +1133,7 @@ function AgendaTab({
           </div>
         </div>
       ) : (
-        /* ── Day view ───────────────────────────────────────────────── */
+        /* Day view */
         <div>
           <div className="flex items-center gap-3 mb-4">
             <button onClick={prevDay} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
@@ -1039,7 +1142,7 @@ function AgendaTab({
             <span className="text-[#f5f0eb] text-sm font-medium capitalize">
               {currentDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
               {fmtDate(currentDate) === today && (
-                <span className="ml-2 text-[#3aab4a] text-xs font-sans normal-case">(Hoje)</span>
+                <span className="ml-2 text-[#3aab4a] text-xs font-sans normal-case tracking-normal">(Hoje)</span>
               )}
             </span>
             <button onClick={nextDay} className="p-2 text-[#a8a8a8] hover:text-[#f5f0eb] hover:bg-white/5 rounded-sm transition-all">
@@ -1047,14 +1150,61 @@ function AgendaTab({
             </button>
           </div>
 
+          {/* Painel de bloqueio do dia — admin only */}
+          {isAdmin && selectedProfId && (
+            <div className={`mb-4 p-4 rounded-sm ring-1 flex flex-wrap items-center gap-3 ${diaBloqueado ? "bg-orange-500/5 ring-orange-500/30" : "bg-[#1a1a1a] ring-white/5"}`}>
+              {diaBloqueado ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <Lock size={13} className="text-orange-400 shrink-0" />
+                  <span className="text-orange-400 text-xs font-medium">Dia bloqueado</span>
+                  {diaBloqueadoRow?.motivo && (
+                    <span className="text-orange-400/60 text-xs">· {diaBloqueadoRow.motivo}</span>
+                  )}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Motivo do bloqueio (opcional)"
+                  value={motivoBloqueio}
+                  onChange={(e) => setMotivoBloqueio(e.target.value)}
+                  className="flex-1 bg-[#272727] ring-1 ring-white/10 rounded-sm px-3 py-2 text-[#f5f0eb] text-sm placeholder:text-[#a8a8a8]/40 focus:outline-none focus:ring-[#3aab4a] max-w-xs"
+                />
+              )}
+              {diaBloqueado ? (
+                <button
+                  onClick={handleDesbloquearDia}
+                  disabled={savingBloqueio}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-sm ring-1 ring-orange-500/30 hover:bg-orange-500/30 transition-all disabled:opacity-50"
+                >
+                  <Unlock size={11} /> Desbloquear dia
+                </button>
+              ) : (
+                <button
+                  onClick={handleBloquearDia}
+                  disabled={savingBloqueio}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-white/10 text-[#a8a8a8] text-xs font-medium rounded-sm hover:border-orange-500/40 hover:text-orange-400 transition-all disabled:opacity-50"
+                >
+                  <Lock size={11} /> Bloquear dia inteiro
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1">
             {HORARIOS.map((h) => {
               const ag = agsNoDia(fmtDate(currentDate)).find((a) => a.horario === h);
+              const bloq = bloqueioDoHorario(h);
+              const isBloqueado = diaBloqueado || !!bloq;
               return (
                 <div
                   key={h}
-                  className={`flex gap-3 items-center px-4 py-3 rounded-sm ring-1 transition-all ${ag ? "bg-[#1a2a1a] ring-[#3aab4a]/25" : "bg-[#1a1a1a] ring-white/5"
-                    }`}
+                  className={`flex gap-3 items-center px-4 py-3 rounded-sm ring-1 transition-all ${
+                    ag
+                      ? "bg-[#1a2a1a] ring-[#3aab4a]/25"
+                      : isBloqueado
+                        ? "bg-orange-500/5 ring-orange-500/20"
+                        : "bg-[#1a1a1a] ring-white/5"
+                  }`}
                 >
                   <span className="text-[#a8a8a8] text-xs w-10 shrink-0 font-mono">{h}</span>
                   <div className="w-px h-4 bg-white/10 shrink-0" />
@@ -1068,15 +1218,46 @@ function AgendaTab({
                       {ag.servico_preco !== null && (
                         <span className="text-[#a8a8a8] text-xs">R$ {ag.servico_preco}</span>
                       )}
-                      <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-sm ${ag.status === "confirmado"
-                          ? "bg-[#3aab4a]/15 text-[#4ec55e]"
-                          : "bg-yellow-400/10 text-yellow-400"
-                        }`}>
+                      <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-sm ${ag.status === "confirmado" ? "bg-[#3aab4a]/15 text-[#4ec55e]" : "bg-yellow-400/10 text-yellow-400"}`}>
                         {ag.status}
                       </span>
                     </div>
+                  ) : isBloqueado ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <Lock size={11} className="text-orange-400/60 shrink-0" />
+                      <span className="text-orange-400/60 text-xs">
+                        {diaBloqueado && !bloq ? "Dia bloqueado" : "Bloqueado"}
+                        {(bloq?.motivo || (diaBloqueado && diaBloqueadoRow?.motivo)) && (
+                          <span className="ml-1 text-orange-400/40">
+                            · {bloq?.motivo ?? diaBloqueadoRow?.motivo}
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   ) : (
-                    <span className="text-[#a8a8a8]/30 text-xs">Disponível</span>
+                    <span className="text-[#a8a8a8]/30 text-xs flex-1">Disponível</span>
+                  )}
+                  {/* Lock/unlock — admin, slots sem agendamento, dia não bloqueado inteiro */}
+                  {isAdmin && !ag && !diaBloqueado && (
+                    bloq ? (
+                      <button
+                        onClick={() => handleDesbloquearHorario(bloq.id)}
+                        disabled={savingBloqueio}
+                        title="Desbloquear horário"
+                        className="ml-auto p-1.5 rounded-sm text-orange-400 hover:bg-orange-500/10 transition-all disabled:opacity-50"
+                      >
+                        <Unlock size={12} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleBloquearHorario(h)}
+                        disabled={savingBloqueio}
+                        title="Bloquear horário"
+                        className="ml-auto p-1.5 rounded-sm text-[#a8a8a8]/20 hover:text-orange-400/60 hover:bg-orange-500/5 transition-all disabled:opacity-50"
+                      >
+                        <Lock size={12} />
+                      </button>
+                    )
                   )}
                 </div>
               );

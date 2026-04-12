@@ -109,12 +109,24 @@ export default function BookingFlow({ initialUnidade, initialServico }: { initia
       .then(({ data }) => setDbProfissionais(data ?? []));
   }, [booking.unidade]);
 
-  // Fetch occupied slots when profissional + date change
+  // Fetch occupied + blocked slots when profissional + date change
   useEffect(() => {
     if (!booking.profissional || !booking.data) return;
-    fetch(`/api/agendamentos?profissionalId=${booking.profissional.id}&data=${booking.data}`)
-      .then((r) => r.json())
-      .then((d) => setOcupados(d.ocupados ?? []))
+    const pid = booking.profissional.id;
+    const date = booking.data;
+    Promise.all([
+      fetch(`/api/agendamentos?profissionalId=${pid}&data=${date}`).then((r) => r.json()),
+      fetch(`/api/horarios-bloqueados?profissionalId=${pid}&data=${date}`).then((r) => r.json()),
+    ])
+      .then(([agData, bloqData]) => {
+        const ocupados: string[] = agData.ocupados ?? [];
+        const bloqueados: string[] = bloqData.bloqueados ?? [];
+        if (bloqData.diaBloqueado) {
+          setOcupados(horarios);
+        } else {
+          setOcupados([...new Set([...ocupados, ...bloqueados])]);
+        }
+      })
       .catch(() => setOcupados([]));
   }, [booking.profissional, booking.data]);
 
